@@ -22,7 +22,7 @@ class App extends Component {
 
   componentDidMount() {
     // fetch data
-    this.onFetchFromGitHub();
+    this.onFetchFromGitHub(this.state.path);
   }
 
   onChange = event => {
@@ -31,13 +31,15 @@ class App extends Component {
 
   onSubmit = event => {
     // fetch data
-
+    this.onFetchFromGitHub(this.state.path);
     event.preventDefault();
   };
 
-  onFetchFromGitHub = () => {
+  onFetchFromGitHub = path => {
+    const [organization, repository] = path.split("/");
+
     axiosGitHubGraphQL
-      .post("", { query: GET_ISSUES_OF_REPOSITORY })
+      .post("", { query: GET_ISSUES_OF_REPOSITORY(organization, repository) })
       .then(result =>
         this.setState(() => ({
           organization: result.data.data.organization,
@@ -138,12 +140,12 @@ const GET_REPOSITORY_OF_ORGANIZATION = `
   }
 `;
 
-const GET_ISSUES_OF_REPOSITORY = `
+const GET_ISSUES_OF_REPOSITORY = (organization, repository) => `
   {
-    organization(login: "the-road-to-learn-react") {
+    organization(login: "${organization}") {
       name
       url
-      repository(name: "the-road-to-learn-react") {
+      repository(name: "${repository}") {
         name
         url
         issues(last: 5) {
