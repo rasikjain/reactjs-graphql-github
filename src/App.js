@@ -13,6 +13,38 @@ const axiosGitHubGraphQL = axios.create({
   }
 });
 
+const resolveIssuesQuery = (queryResult, cursor) => state => {
+  const { data, errors } = queryResult.data;
+
+  debugger;
+  if (!cursor) {
+    return {
+      organization: data.organization,
+      errors
+    };
+  }
+
+  const { edges: oldIssues } = state.organization.repository.issues;
+  const { edges: newIssues } = data.organization.repository.issues;
+  const updatedIssues = [...oldIssues, ...newIssues];
+
+  let result = {
+    organization: {
+      ...data.organization,
+      repository: {
+        ...data.organization.repository,
+        issues: {
+          ...data.organization.repository.issues,
+          edges: updatedIssues
+        }
+      }
+    },
+    errors
+  };
+
+  return result;
+};
+
 class App extends Component {
   state = {
     path: "the-road-to-learn-react/the-road-to-learn-react",
@@ -35,24 +67,20 @@ class App extends Component {
     event.preventDefault();
   };
 
-  onFetchFromGitHub = path => {
+  onFetchFromGitHub = (path, cursor) => {
     const [organization, repository] = path.split("/");
 
     axiosGitHubGraphQL
       .post("", {
         query: GET_ISSUES_OF_REPOSITORY,
-        variables: { organization, repository }
+        variables: { organization, repository, cursor }
       })
-      .then(result =>
-        this.setState(() => ({
-          organization: result.data.data.organization,
-          errors: result.data.errors
-        }))
-      );
+      .then(result => this.setState(resolveIssuesQuery(result, cursor)));
   };
 
   onFetchMoreIssues = () => {
-    console.log("fetchmoreissues");
+    const { endCursor } = this.state.organization.repository.issues.pageInfo;
+    this.onFetchFromGitHub(this.state.path, endCursor);
   };
 
   render() {
@@ -135,19 +163,21 @@ const Repository = ({ repository, onFetchMoreIssues }) => (
       ))}
     </ul>
     <hr />
-    <button onClick={onFetchMoreIssues}>More</button>
+    {repository.issues.pageInfo.hasNextPage && (
+      <button onClick={onFetchMoreIssues}>More</button>
+    )}
   </div>
 );
 
 const GET_ISSUES_OF_REPOSITORY = `
-  query ($organization: String!, $repository: String!) {
+  query ($organization: String!, $repository: String!, $cursor : String) {
     organization(login: $organization) {
       name
       url
       repository(name: $repository) {
         name
         url
-        issues(last: 5, states: [OPEN]) {
+        issues(first: 5, after: $cursor, states: [OPEN]) {
           edges {
             node {
               id
@@ -162,6 +192,11 @@ const GET_ISSUES_OF_REPOSITORY = `
                 }
               }
             }
+          }
+          totalCount
+          pageInfo {
+            endCursor
+            hasNextPage
           }
         }
       }
