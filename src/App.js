@@ -15,8 +15,6 @@ const axiosGitHubGraphQL = axios.create({
 
 const resolveIssuesQuery = (queryResult, cursor) => state => {
   const { data, errors } = queryResult.data;
-
-  debugger;
   if (!cursor) {
     return {
       organization: data.organization,
@@ -184,7 +182,16 @@ const Repository = ({ repository, onFetchMoreIssues, onStarRepository }) => (
   <div>
     <p>
       <strong>In Repository:</strong>
-      <a href={repository.url}>{repository.name}</a>
+      <a href={repository.url}>{repository.name}</a>{" "}
+      <button
+        type="button"
+        onClick={() =>
+          onStarRepository(repository.id, repository.viewerHasStarred)
+        }
+      >
+        {repository.viewerHasStarred ? "Unstar" : "Star"}(
+        {repository.stargazers.totalCount})
+      </button>
     </p>
     <ul>
       {repository.issues.edges.map(issue => (
@@ -195,15 +202,6 @@ const Repository = ({ repository, onFetchMoreIssues, onStarRepository }) => (
               <li key={reaction.node.id}>{reaction.node.content}</li>
             ))}
           </ul>
-          <button
-            type="button"
-            onClick={() =>
-              onStarRepository(repository.id, repository.viewerHasStarred)
-            }
-          >
-            {repository.stargazers.totalCount}
-            {repository.viewerHasStarred ? "Unstar" : "Star"}
-          </button>
         </li>
       ))}
     </ul>
@@ -223,6 +221,9 @@ const GET_ISSUES_OF_REPOSITORY = `
         id
         name
         url
+        stargazers {
+          totalCount
+        }
         viewerHasStarred
         issues(first: 5, after: $cursor, states: [OPEN]) {
           edges {
@@ -230,9 +231,6 @@ const GET_ISSUES_OF_REPOSITORY = `
               id
               title
               url
-              stargazers {
-                totalCount
-              }
               reactions(last: 3) {
                 edges {
                   node {
