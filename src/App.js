@@ -39,13 +39,20 @@ class App extends Component {
     const [organization, repository] = path.split("/");
 
     axiosGitHubGraphQL
-      .post("", { query: GET_ISSUES_OF_REPOSITORY(organization, repository) })
+      .post("", {
+        query: GET_ISSUES_OF_REPOSITORY,
+        variables: { organization, repository }
+      })
       .then(result =>
         this.setState(() => ({
           organization: result.data.data.organization,
           errors: result.data.errors
         }))
       );
+  };
+
+  onFetchMoreIssues = () => {
+    console.log("fetchmoreissues");
   };
 
   render() {
@@ -71,7 +78,11 @@ class App extends Component {
           </form>
           <hr />
           {organization ? (
-            <Organization organization={organization} errors={errors} />
+            <Organization
+              organization={organization}
+              errors={errors}
+              onFetchMoreIssues={this.onFetchMoreIssues}
+            />
           ) : (
             <p>No information yet ...</p>
           )}
@@ -81,7 +92,7 @@ class App extends Component {
   }
 }
 
-const Organization = ({ organization, errors }) => {
+const Organization = ({ organization, errors, onFetchMoreIssues }) => {
   if (errors) {
     return (
       <p>
@@ -97,12 +108,15 @@ const Organization = ({ organization, errors }) => {
         <strong>Issues from Organization:</strong>
         <a href={organization.url}>{organization.name}</a>
       </p>
-      <Repository repository={organization.repository} />
+      <Repository
+        repository={organization.repository}
+        onFetchMoreIssues={onFetchMoreIssues}
+      />
     </div>
   );
 };
 
-const Repository = ({ repository }) => (
+const Repository = ({ repository, onFetchMoreIssues }) => (
   <div>
     <p>
       <strong>In Repository:</strong>
@@ -112,48 +126,41 @@ const Repository = ({ repository }) => (
       {repository.issues.edges.map(issue => (
         <li key={issue.node.id}>
           <a href={issue.node.url}>{issue.node.title}</a>
+          <ul>
+            {issue.node.reactions.edges.map(reaction => (
+              <li key={reaction.node.id}>{reaction.node.content}</li>
+            ))}
+          </ul>
         </li>
       ))}
     </ul>
+    <hr />
+    <button onClick={onFetchMoreIssues}>More</button>
   </div>
 );
 
-const GET_ORGANIZATION = `
-  {
-    organization(login: "the-road-to-learn-react") {
+const GET_ISSUES_OF_REPOSITORY = `
+  query ($organization: String!, $repository: String!) {
+    organization(login: $organization) {
       name
       url
-    }
-  }
-`;
-
-const GET_REPOSITORY_OF_ORGANIZATION = `
-  {
-    organization(login: "the-road-to-learn-react") {
-      name
-      url
-      repository(name: "the-road-to-learn-react") {
+      repository(name: $repository) {
         name
         url
-      }
-    }
-  }
-`;
-
-const GET_ISSUES_OF_REPOSITORY = (organization, repository) => `
-  {
-    organization(login: "${organization}") {
-      name
-      url
-      repository(name: "${repository}") {
-        name
-        url
-        issues(last: 5) {
+        issues(last: 5, states: [OPEN]) {
           edges {
             node {
               id
               title
               url
+              reactions(last: 3) {
+                edges {
+                  node {
+                    id
+                    content
+                  }
+                }
+              }
             }
           }
         }
@@ -161,4 +168,5 @@ const GET_ISSUES_OF_REPOSITORY = (organization, repository) => `
     }
   }
 `;
+
 export default App;
